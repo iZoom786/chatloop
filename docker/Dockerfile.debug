@@ -1,0 +1,24 @@
+# Debug Dockerfile to show actual build errors
+FROM rust:latest
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    gcc \
+    g++ \
+    cmake \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Copy source code
+COPY Cargo.toml ./
+COPY crates ./crates
+
+# Run cargo check first to show errors clearly
+RUN cargo check --workspace
+
+# Then build
+RUN cargo build --release

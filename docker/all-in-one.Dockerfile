@@ -20,13 +20,12 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /build
 
-# Copy source code (copy Cargo.toml first, then source)
+# Copy source code
 COPY Cargo.toml ./
 COPY crates ./crates
 
-# Update Rust and build (this will generate a new Cargo.lock)
-RUN rustup update && \
-    cargo build --release
+# Build in release mode with error output
+RUN cargo build --release 2>&1 | tee build.log
 
 # ============================================
 # Stage 2: Runtime - Minimal image
@@ -64,19 +63,14 @@ USER chatloop
 ENV CHATLOOP_BIND_ADDRESS=0.0.0.0
 ENV CHATLOOP_CONFIG=/home/chatloop/configs
 
-# Expose ports (both coordinator and workers can use these ranges)
-# Coordinator typically uses 50050
-# Workers typically use 50051-50054
-EXPOSE 50050 50051 50052 50053 50054
-
-# Metrics port
-EXPOSE 9091
+# Expose ports
+EXPOSE 50050 50051 50052 50053 50054 9091
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD exit 0 || exit 1
 
-# Startup script - chooses which service to run based on CHATLOOP_ROLE
+# Startup script
 CMD ["/bin/bash", "-c", "\
     if [ \"$CHATLOOP_ROLE\" = \"coordinator\" ]; then \
         echo \"Starting ChatLoop Coordinator...\"; \
