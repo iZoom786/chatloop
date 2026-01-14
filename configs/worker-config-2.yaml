@@ -1,0 +1,70 @@
+# ChatLoop Worker 2 Configuration
+# Handles layers 16-23 of the model
+
+mode: "worker"
+bind_address: "0.0.0.0"
+port: 50053
+
+worker:
+  worker_id: "worker-2"
+
+  # Layer group configuration
+  layer_group:
+    start_layer: 16       # Layer 16
+    end_layer: 24         # Layers 16-23 (8 layers)
+    total_layers: 32      # Total layers in the model
+    num_heads: 32         # Number of attention heads
+    head_dim: 128         # Dimension per head
+    hidden_dim: 4096      # Hidden dimension
+    intermediate_dim: 11008  # FFN intermediate dimension
+
+  # Next worker in pipeline
+  next_worker_endpoint: "http://worker-3:50054"
+
+  # Previous worker
+  prev_worker_endpoint: "http://worker-1:50052"
+
+  # Batching configuration
+  batching:
+    max_batch_size: 16        # Maximum requests per batch
+    batching_window_ms: 5     # Batching window in milliseconds
+    max_queue_size: 256       # Maximum queued requests
+    queue_timeout_ms: 1000    # Queue operation timeout
+
+  # Model weights path (mounted volume)
+  weights_path: "/home/chatloop/models/partitions/partition_2.safetensors"
+
+  # Worker threads (0 = auto = number of CPU cores)
+  worker_threads: 8
+
+  # Enable CPU core pinning
+  enable_cpu_pinning: true
+
+  # CPU cores to pin to (optional, comma-separated or ranges)
+  cpu_cores: null
+
+  # NUMA node for memory allocation (optional)
+  numa_node: null
+
+# Model configuration (optional, for reference)
+model:
+  model_id: "llama-2-7b"
+  architecture: "llama"
+  vocab_size: 32000
+  max_sequence_length: 2048
+  quantization: "none"  # Options: none, int8, int4
+
+# Performance tuning
+performance:
+  enable_simd: true
+  enable_numa: false
+  kv_cache_mb: 512
+  preallocate_activations: true
+  allocator: "arena"
+
+# Observability
+observability:
+  log_level: "info"
+  enable_metrics: true
+  metrics_port: 9091
+  structured_logging: true

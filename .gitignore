@@ -63,8 +63,7 @@ tmp/
 temp/
 
 # Configuration (keep examples)
-configs/worker-config-*.yaml
-!configs/worker-config.yaml
+# Individual worker configs are now tracked
 configs/coordinator-config-*.yaml
 !configs/coordinator-config.yaml
 
