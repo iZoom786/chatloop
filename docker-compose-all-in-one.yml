@@ -1,0 +1,122 @@
+version: '3.8'
+
+services:
+  # Coordinator Service
+  coordinator:
+    build:
+      context: .
+      dockerfile: docker/all-in-one.Dockerfile
+    container_name: chatloop-coordinator
+    environment:
+      - CHATLOOP_ROLE=coordinator
+      - CHATLOOP_PORT=50050
+    ports:
+      - "50050:50050"
+      - "9090:9091"
+    volumes:
+      - ./configs/coordinator-config.yaml:/home/chatloop/configs/coordinator-config.yaml:ro
+      - ./logs:/home/chatloop/logs
+    networks:
+      - chatloop-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:50050"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Worker 0
+  worker-0:
+    build:
+      context: .
+      dockerfile: docker/all-in-one.Dockerfile
+    container_name: chatloop-worker-0
+    environment:
+      - CHATLOOP_ROLE=worker
+      - CHATLOOP_WORKER_ID=worker-0
+      - CHATLOOP_PORT=50051
+    ports:
+      - "50051:50051"
+      - "9091:9091"
+    volumes:
+      - ./models:/home/chatloop/models:ro
+      - ./configs/worker-config-0.yaml:/home/chatloop/configs/worker-config.yaml:ro
+      - ./logs:/home/chatloop/logs
+    networks:
+      - chatloop-network
+    restart: unless-stopped
+    depends_on:
+      - coordinator
+
+  # Worker 1
+  worker-1:
+    build:
+      context: .
+      dockerfile: docker/all-in-one.Dockerfile
+    container_name: chatloop-worker-1
+    environment:
+      - CHATLOOP_ROLE=worker
+      - CHATLOOP_WORKER_ID=worker-1
+      - CHATLOOP_PORT=50052
+    ports:
+      - "50052:50052"
+      - "9092:9091"
+    volumes:
+      - ./models:/home/chatloop/models:ro
+      - ./configs/worker-config-1.yaml:/home/chatloop/configs/worker-config-1.yaml:ro
+      - ./logs:/home/chatloop/logs
+    networks:
+      - chatloop-network
+    restart: unless-stopped
+    depends_on:
+      - coordinator
+
+  # Worker 2
+  worker-2:
+    build:
+      context: .
+      dockerfile: docker/all-in-one.Dockerfile
+    container_name: chatloop-worker-2
+    environment:
+      - CHATLOOP_ROLE=worker
+      - CHATLOOP_WORKER_ID=worker-2
+      - CHATLOOP_PORT=50053
+    ports:
+      - "50053:50053"
+      - "9093:9091"
+    volumes:
+      - ./models:/home/chatloop/models:ro
+      - ./configs/worker-config-2.yaml:/home/chatloop/configs/worker-config-2.yaml:ro
+      - ./logs:/home/chatloop/logs
+    networks:
+      - chatloop-network
+    restart: unless-stopped
+    depends_on:
+      - coordinator
+
+  # Worker 3
+  worker-3:
+    build:
+      context: .
+      dockerfile: docker/all-in-one.Dockerfile
+    container_name: chatloop-worker-3
+    environment:
+      - CHATLOOP_ROLE=worker
+      - CHATLOOP_WORKER_ID=worker-3
+      - CHATLOOP_PORT=50054
+    ports:
+      - "50054:50054"
+      - "9094:9091"
+    volumes:
+      - ./models:/home/chatloop/models:ro
+      - ./configs/worker-config-3.yaml:/home/chatloop/configs/worker-config-3.yaml:ro
+      - ./logs:/home/chatloop/logs
+    networks:
+      - chatloop-network
+    restart: unless-stopped
+    depends_on:
+      - coordinator
+
+networks:
+  chatloop-network:
+    driver: bridge
