@@ -48,11 +48,59 @@ function Show-Help {
 
 function Build-Image {
     Write-Host "Building ChatLoop Docker image..." -ForegroundColor Cyan
-    docker build -f docker/all-in-one.Dockerfile -t "${IMAGE_NAME}:latest" .
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "Build complete!" -ForegroundColor Green
+    Write-Host "This may take 10-20 minutes on first build..." -ForegroundColor Yellow
+    Write-Host ""
+
+    # Check if Docker is running
+    try {
+        docker version > $null 2>&1
+    } catch {
+        Write-Host "Error: Docker is not running!" -ForegroundColor Red
+        Write-Host "Please start Docker Desktop and try again." -ForegroundColor Yellow
+        exit 1
+    }
+
+    # Build with verbose output
+    $buildOutput = docker build -f docker/all-in-one.Dockerfile -t "${IMAGE_NAME}:latest" . 2>&1
+    $exitCode = $LASTEXITCODE
+
+    # Show output
+    $buildOutput | ForEach-Object {
+        if ($_ -match "error|ERROR") {
+            Write-Host $_ -ForegroundColor Red
+        } elseif ($_ -match "warning|WARNING") {
+            Write-Host $_ -ForegroundColor Yellow
+        } elseif ($_ -match "===.*===") {
+            Write-Host $_ -ForegroundColor Cyan
+        } else {
+            Write-Host $_
+        }
+    }
+
+    if ($exitCode -eq 0) {
+        Write-Host ""
+        Write-Host "=======================================" -ForegroundColor Green
+        Write-Host "Build completed successfully!" -ForegroundColor Green
+        Write-Host "=======================================" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "Next steps:" -ForegroundColor Cyan
+        Write-Host "  1. Run coordinator: .\docker-run.ps1 run-coordinator" -ForegroundColor Yellow
+        Write-Host "  2. Run workers: .\docker-run.ps1 run-worker 0" -ForegroundColor Yellow
+        Write-Host "  3. Check status: .\docker-run.ps1 status" -ForegroundColor Yellow
+        Write-Host ""
     } else {
+        Write-Host ""
+        Write-Host "=======================================" -ForegroundColor Red
         Write-Host "Build failed!" -ForegroundColor Red
+        Write-Host "=======================================" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Common causes:" -ForegroundColor Yellow
+        Write-Host "  1. Compilation error in Rust code" -ForegroundColor White
+        Write-Host "  2. Missing dependencies" -ForegroundColor White
+        Write-Host "  3. Out of memory (increase Docker memory limit)" -ForegroundColor White
+        Write-Host ""
+        Write-Host "For detailed troubleshooting, see: DOCKER_BUILD_TROUBLESHOOTING.md" -ForegroundColor Cyan
+        Write-Host ""
         exit 1
     }
 }

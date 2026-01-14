@@ -24,8 +24,11 @@ WORKDIR /build
 COPY Cargo.toml ./
 COPY crates ./crates
 
-# Build in release mode with error output
-RUN cargo build --release 2>&1 | tee build.log
+# Build in release mode with verbose output
+RUN echo "=== Starting Rust build ===" && \
+    cargo build --release 2>&1 | tee build.log && \
+    echo "=== Build completed successfully ===" && \
+    ls -la target/release/ | grep chatloop
 
 # ============================================
 # Stage 2: Runtime - Minimal image

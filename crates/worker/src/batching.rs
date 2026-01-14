@@ -3,7 +3,7 @@
 //! This module implements efficient request batching to maximize throughput
 //! while maintaining low latency. Uses lock-free queues for minimal overhead.
 
-use crate::error::{ChatLoopError, Result};
+use chatloop_common::{ChatLoopError, Result};
 use chatloop_common::config::BatchingConfig;
 use crossbeam::queue::SegQueue;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};

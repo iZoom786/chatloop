@@ -3,7 +3,7 @@
 //! This module provides high-performance tensor operations using SIMD where possible.
 //! All operations are designed to minimize allocations and maximize cache locality.
 
-use crate::error::{ChatLoopError, Result};
+use chatloop_common::{ChatLoopError, Result};
 use crate::tensor::{Shape, Tensor, TensorView};
 use half::f16;
 use num_traits::{Float, NumCast, Zero};

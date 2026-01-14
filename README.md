@@ -98,7 +98,78 @@ ChatLoop consists of three main components:
 
 ## Quick Start
 
-### Prerequisites Installation
+### Option 1: Docker (Recommended - No Rust Installation Required)
+
+The easiest way to get started is using Docker. You don't need to install Rust on your machine.
+
+#### 1. Install Docker Desktop
+
+- **Windows**: Download from [docker.com](https://www.docker.com/products/docker-desktop/)
+- **Linux**: Install via package manager (see Docker docs)
+- **macOS**: Download from [docker.com](https://www.docker.com/products/docker-desktop/)
+
+#### 2. Build the Docker Image
+
+**Windows (PowerShell):**
+```powershell
+# Build the all-in-one image (includes both coordinator and worker)
+.\docker-run.ps1 build
+```
+
+**Linux/macOS:**
+```bash
+# Build the all-in-one image
+chmod +x docker-run.sh
+./docker-run.sh build
+```
+
+**Note:** First build takes 10-20 minutes as it compiles Rust code and downloads dependencies.
+
+**Build Troubleshooting:** If the build fails, see [DOCKER_BUILD_TROUBLESHOOTING.md](DOCKER_BUILD_TROUBLESHOOTING.md) for detailed troubleshooting steps.
+
+#### 3. Run Coordinator
+
+```powershell
+# Windows
+.\docker-run.ps1 run-coordinator
+
+# Linux/macOS
+./docker-run.sh run-coordinator
+```
+
+#### 4. Run Workers
+
+```powershell
+# Windows - Start 4 workers (each handles 8 layers)
+.\docker-run.ps1 run-worker 0
+.\docker-run.ps1 run-worker 1
+.\docker-run.ps1 run-worker 2
+.\docker-run.ps1 run-worker 3
+
+# Linux/macOS
+./docker-run.sh run-worker 0
+./docker-run.sh run-worker 1
+./docker-run.sh run-worker 2
+./docker-run.sh run-worker 3
+```
+
+#### 5. Check Status
+
+```powershell
+# Windows
+.\docker-run.ps1 status
+
+# Linux/macOS
+./docker-run.sh status
+```
+
+For complete Docker documentation, see:
+- [DOCKER_GUIDE.md](DOCKER_GUIDE.md) - Complete Docker setup guide
+- [DOCKER_BUILD_TROUBLESHOOTING.md](DOCKER_BUILD_TROUBLESHOOTING.md) - Build troubleshooting
+- [MODEL_SETUP_GUIDE.md](MODEL_SETUP_GUIDE.md) - Where to place model files
+- [WORKER_CONFIGS.md](WORKER_CONFIGS.md) - Worker configuration details
+
+### Option 2: Local Build (Requires Rust Installation)
 
 #### 1. Install Rust
 
@@ -119,13 +190,13 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source $HOME/.cargo/env
 ```
 
-#### 2. Install Python Dependencies
+#### 2. Install Python Dependencies (for model splitting)
 
 ```bash
 pip install torch transformers safetensors accelerate
 ```
 
-### Build the Project
+#### 3. Build the Project
 
 **Windows (PowerShell):**
 ```powershell

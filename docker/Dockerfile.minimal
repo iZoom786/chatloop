@@ -1,0 +1,14 @@
+# Minimal Dockerfile to check compilation
+FROM rust:latest
+
+WORKDIR /app
+
+# Copy source
+COPY Cargo.toml ./
+COPY crates ./crates
+
+# Try to build (will show actual errors)
+RUN cargo build --release 2>&1 | tee /tmp/build.log || (cat /tmp/build.log && exit 1)
+
+# Show what was built
+RUN ls -la target/release/

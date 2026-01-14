@@ -3,7 +3,7 @@
 //! This module provides zero-copy access to model weights stored in SafeTensor format.
 //! All weights are memory-mapped for efficient access and minimal memory overhead.
 
-use crate::error::{ChatLoopError, Result};
+use chatloop_common::{ChatLoopError, Result};
 use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

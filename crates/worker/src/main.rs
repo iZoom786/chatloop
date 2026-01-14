@@ -7,7 +7,7 @@ use chatloop_common::{ChatLoopConfig, ChatLoopError, Result};
 use chatloop_worker::{BatchScheduler, InferenceEngine, ModelPartition};
 use std::time::Duration;
 use tokio::signal;
-use tracing::{error, info, warn};
+use tracing::{error, info, trace, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
