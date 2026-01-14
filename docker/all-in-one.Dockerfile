@@ -5,7 +5,7 @@
 # ============================================
 # Stage 1: Builder - Compile Rust code
 # ============================================
-FROM rust:1.75-slim as builder
+FROM rust:latest as builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -20,13 +20,13 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /build
 
-# Copy source code
-COPY Cargo.toml Cargo.lock* ./
+# Copy source code (copy Cargo.toml first, then source)
+COPY Cargo.toml ./
 COPY crates ./crates
 
-# Build all crates in release mode
-ENV RUSTFLAGS="-C target-cpu=native -C target-feature=+avx2"
-RUN cargo build --release
+# Update Rust and build (this will generate a new Cargo.lock)
+RUN rustup update && \
+    cargo build --release
 
 # ============================================
 # Stage 2: Runtime - Minimal image
