@@ -8,10 +8,11 @@ ChatLoop is a production-grade, horizontally scalable LLM inference platform des
 - [Key Features](#key-features)
 - [System Requirements](#system-requirements)
 - [Quick Start](#quick-start)
+- [Project Status](#project-status)
 - [Architecture Deep Dive](#architecture-deep-dive)
+- [Development](#development)
 - [Deployment](#deployment)
 - [Performance Tuning](#performance-tuning)
-- [Monitoring and Observability](#monitoring-and-observability)
 - [Troubleshooting](#troubleshooting)
 
 ## Architecture Overview
@@ -79,7 +80,7 @@ ChatLoop consists of three main components:
 - **Memory**: 4 GB per worker (depends on model partition size)
 - **Storage**: 10 GB for model weights (depends on model)
 - **Network**: 1 Gbps (10 Gbps recommended)
-- **OS**: Linux (kernel 5.4+)
+- **OS**: Linux, macOS, or Windows 10+
 
 ### Recommended for Production
 
@@ -90,36 +91,66 @@ ChatLoop consists of three main components:
 
 ### Software Dependencies
 
-- **Rust**: 1.75+
-- **Docker**: 20.10+
-- **Hadoop YARN**: 3.3+ (for orchestration)
+- **Rust**: 1.75+ (install from https://rustup.rs/)
+- **Docker**: 20.10+ (optional, for containerized deployment)
+- **Hadoop YARN**: 3.3+ (optional, for orchestration)
 - **Python**: 3.9+ (for model splitting tool)
 
 ## Quick Start
 
-### 1. Clone the Repository
+### Prerequisites Installation
 
-```bash
-git clone https://github.com/your-org/chatloop.git
-cd chatloop
+#### 1. Install Rust
+
+**Windows:**
+```powershell
+# Download and run rustup-init.exe from https://rustup.rs/
+# Or use winget:
+winget install Rustlang.Rustup
+
+# Restart terminal and verify:
+rustc --version
+cargo --version
 ```
 
-### 2. Build the Project
+**Linux/macOS:**
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+```
+
+#### 2. Install Python Dependencies
 
 ```bash
+pip install torch transformers safetensors accelerate
+```
+
+### Build the Project
+
+**Windows (PowerShell):**
+```powershell
+# Use the build script
+.\build.ps1 build
+
+# Or use cargo directly
 cargo build --release
 ```
 
-### 3. Split a Model
+**Linux/macOS:**
+```bash
+# Use make (if installed)
+make build
+
+# Or use cargo directly
+cargo build --release
+```
+
+### Split a Model
 
 ```bash
-# Install Python dependencies
-pip install -r python/model_splitter/requirements.txt
-
-# Split a model into 4 partitions
 python python/model_splitter/split_model.py \
     --model meta-llama/Llama-2-7b-hf \
-    --output ./models/llama-2-7b-partitions \
+    --output ./models/partitions \
     --num-partitions 4
 ```
 
@@ -128,71 +159,55 @@ This creates:
 - `partition_metadata.json` with layer group information
 - `tokenizer/` directory with tokenizer files
 
-### 4. Configure Workers
-
-Edit `configs/worker-config.yaml`:
-
-```yaml
-worker:
-  worker_id: "worker-0"
-  layer_group:
-    start_layer: 0
-    end_layer: 8
-    # ... other layer config ...
-  weights_path: "/models/partition_0.safetensors"
-```
-
-Create separate configs for each worker (0 to N-1).
-
-### 5. Build Docker Images
+### Run with Docker Compose (Development)
 
 ```bash
-# Build base image
+# Build Docker images
 docker build -f docker/base.Dockerfile -t chatloop-base:latest .
-
-# Build worker image
 docker build -f docker/worker.Dockerfile -t chatloop-worker:latest .
-
-# Build coordinator image
 docker build -f docker/coordinator.Dockerfile -t chatloop-coordinator:latest .
+
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
 ```
 
-### 6. Deploy with YARN
+## Project Status
 
-```bash
-# Deploy workers
-yarn app -install chatloop-worker
-yarn app -start chatloop-worker -Dworker.id=0 -Dworker.port=50051
-yarn app -start chatloop-worker -Dworker.id=1 -Dworker.port=50052
-# ... etc for all workers
+### ✅ Implemented
 
-# Deploy coordinator
-yarn app -install chatloop-coordinator
-yarn app -start chatloop-coordinator
-```
+- **Core Architecture**: Modular Rust workspace with worker, coordinator, and common crates
+- **Configuration System**: YAML-based configuration with environment variable overrides
+- **Error Handling**: Comprehensive error types with gRPC status conversion
+- **Metrics**: Prometheus metrics for observability
+- **Tensor Operations**: SIMD-friendly matrix operations with quantization support
+- **Memory-Mapped Weights**: Zero-copy Safetensors loading
+- **Token-Level Batching**: Lock-free batching with configurable window (2-5ms)
+- **KV Cache Management**: Efficient caching for autoregressive generation
+- **Model Splitter**: Python tooling for partitioning HuggingFace models
+- **Docker Support**: Container images for workers and coordinator
+- **YARN Integration**: Service definitions and launch scripts
 
-### 7. Send Inference Requests
+### 🚧 In Progress
 
-```python
-import grpc
-from inference_pb2_grpc import InferenceServiceStub
-from inference_pb2 import InferenceRequest
+- **gRPC Communication**: Protocol buffers defined (simplified implementation in place)
+- **Inference Engine**: Core logic implemented (needs testing and optimization)
+- **Load Balancing**: Router logic implemented (needs integration testing)
 
-# Connect to coordinator
-channel = grpc.insecure_channel("coordinator:50050")
-stub = InferenceServiceStub(channel)
+### 📋 TODO
 
-# Send request
-request = InferenceRequest(
-    model_id="llama-2-7b",
-    prompt="Explain quantum computing in simple terms.",
-    max_tokens=100,
-    temperature=0.7,
-)
-
-response = stub.Inference(request)
-print(response.text)
-```
+- Complete gRPC server/client implementation
+- Add comprehensive unit tests
+- Add integration tests
+- Performance benchmarks
+- Complete documentation
+- Add example clients (Python, JavaScript, etc.)
+- Kubernetes deployment manifests
 
 ## Architecture Deep Dive
 
@@ -227,18 +242,10 @@ Input Tokens
                          Output Tokens
 ```
 
-Each worker:
-1. Receives hidden states from previous worker
-2. Processes its layer group
-3. Passes results to next worker
-4. For final worker, generates output tokens
-
 ### Token-Level Batching
 
-The batching window balances throughput and latency:
-
 ```
-Time ────────────────────────────────────────►
+Time ───────────────────────────────────────►
 
 Request 1:  ████                (processed alone)
 Request 2:      ████             (batched with 3)
@@ -252,14 +259,7 @@ Request 6:                  ████
 └────────────────┘
 ```
 
-Benefits:
-- Low latency: Small window ensures fast processing
-- High throughput: Batches multiple requests when they arrive close together
-- Backpressure: Rejects requests when queue is full
-
 ### Memory-Mapped Weights
-
-Model weights are memory-mapped for efficient access:
 
 ```
 File: partition_0.safetensors (10 GB)
@@ -284,347 +284,162 @@ File: partition_0.safetensors (10 GB)
 │ ├─ Tensor 2 (page 50-100)        │ ◄──┘ │
 │ └─ Tensor 5 (page 200-250)       │ ◄────┘
 └──────────────────────────────────┘
-
-Key Benefits:
-- Zero-copy access
-- OS-managed caching
-- Fast startup (no loading time)
-- Shared memory across processes
 ```
 
-### Fault Tolerance
+## Development
 
-ChatLoop handles failures gracefully:
+### Project Structure
 
 ```
-┌─────────────┐
-│ Coordinator │
-└──────┬──────┘
-       │
-       ├──────────────┐
-       │              │
-       ▼              ▼
-  ┌─────────┐    ┌─────────┐
-  │Worker 0 │    │Worker 1 │◄─── FAILURE!
-  │Healthy  │    │Unhealthy│
-  └─────────┘    └─────────┘
-       │              │
-       │              └─────┐
-       │                    │
-       ▼                    ▼
-  Request 1          Request 2
-  (to worker 0)      (rerouted to worker 0)
+chatloop/
+├── Cargo.toml                    # Rust workspace
+├── build.ps1                     # Windows build script
+├── Makefile                      # Unix build script
+├── docker-compose.yml            # Dev deployment
+├── crates/
+│   ├── proto/                    # Protocol definitions (simplified)
+│   ├── common/                   # Shared code
+│   ├── worker/                   # Inference worker
+│   └── coordinator/              # Router
+├── python/model_splitter/        # Model splitting tool
+├── docker/                       # Docker images
+├── yarn/                         # YARN integration
+├── configs/                      # Configuration files
+├── docs/                         # Additional documentation
+├── README.md                     # This file
+└── QUICKSTART.md                 # Quick start guide
 ```
 
-Failure Handling:
-1. Health check detects failure
-2. Router marks worker unhealthy
-3. Requests rerouted to healthy workers
-4. YARN restarts failed container
-5. Worker rejoins after restart
+### Building
+
+**Windows (PowerShell):**
+```powershell
+.\build.ps1 build          # Build release
+.\build.ps1 test           # Run tests
+.\build.ps1 clean          # Clean artifacts
+```
+
+**Linux/macOS:**
+```bash
+make build                 # Build release
+make test                  # Run tests
+make clean                 # Clean artifacts
+```
+
+**Cross-platform:**
+```bash
+cargo build --release      # Build all crates
+cargo test --all           # Run all tests
+cargo clean                # Clean build artifacts
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+cargo test --all
+
+# Run tests for specific crate
+cargo test -p chatloop-common
+cargo test -p chatloop-worker
+
+# Run tests with output
+cargo test -- --nocapture
+```
 
 ## Deployment
 
-### Docker Compose (Development)
+### Docker
 
-```yaml
-version: '3.8'
-services:
-  coordinator:
-    image: chatloop-coordinator:latest
-    ports:
-      - "50050:50050"
-      - "9091:9091"
-    volumes:
-      - ./configs/coordinator-config.yaml:/home/chatloop/configs/coordinator-config.yaml
-
-  worker-0:
-    image: chatloop-worker:latest
-    ports:
-      - "50051:50051"
-      - "9092:9091"
-    environment:
-      - CHATLOOP_WORKER_ID=worker-0
-    volumes:
-      - ./models/partition_0.safetensors:/home/chatloop/models/partition_0.safetensors
-      - ./configs/worker-config-0.yaml:/home/chatloop/configs/worker-config.yaml
-
-  # Add more workers...
+Build images:
+```bash
+docker build -f docker/base.Dockerfile -t chatloop-base:latest .
+docker build -f docker/worker.Dockerfile -t chatloop-worker:latest .
+docker build -f docker/coordinator.Dockerfile -t chatloop-coordinator:latest .
 ```
 
-### Kubernetes (Production)
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: chatloop-worker-0
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: chatloop-worker-0
-  template:
-    metadata:
-      labels:
-        app: chatloop-worker-0
-    spec:
-      containers:
-      - name: worker
-        image: chatloop-worker:latest
-        ports:
-        - containerPort: 50051
-        resources:
-          requests:
-            memory: "16Gi"
-            cpu: "8"
-          limits:
-            memory: "32Gi"
-            cpu: "16"
-        volumeMounts:
-        - name: model
-          mountPath: /home/chatloop/models
-      volumes:
-      - name: model
-        hostPath:
-          path: /mnt/models/partition_0.safetensors
+Run with docker-compose:
+```bash
+docker-compose up -d
 ```
 
-### YARN (Production)
+### Kubernetes
 
-See [yarn/worker-service.xml](yarn/worker-service.xml) and [yarn/coordinator-service.xml](yarn/coordinator-service.xml) for full configuration.
+See `configs/` for example Kubernetes manifests (TODO)
+
+### YARN
+
+```bash
+# Deploy workers
+yarn app -install chatloop-worker
+yarn app -start chatloop-worker -Dworker.id=0
+
+# Deploy coordinator
+yarn app -install chatloop-coordinator
+yarn app -start chatloop-coordinator
+```
 
 ## Performance Tuning
 
 ### CPU Optimization
 
-1. **Enable CPU Pinning** in worker config:
-   ```yaml
-   worker:
-     enable_cpu_pinning: true
-     cpu_cores: "0-15"  # Pin to cores 0-15
-   ```
-
-2. **Use NUMA Binding** for multi-socket systems:
-   ```yaml
-   worker:
-     numa_node: 0  # Bind to NUMA node 0
-   ```
-
-3. **Enable SIMD** (enabled by default):
-   ```yaml
-   performance:
-     enable_simd: true
-   ```
+- Enable CPU pinning in worker config
+- Use NUMA binding for multi-socket systems
+- Enable SIMD (enabled by default)
 
 ### Memory Optimization
 
-1. **Adjust KV Cache Size**:
-   ```yaml
-   performance:
-     kv_cache_mb: 1024  # Increase for longer sequences
-   ```
-
-2. **Use Quantization**:
-   ```bash
-   python split_model.py --quantization int8 ...
-   ```
-
-3. **Preallocate Activations**:
-   ```yaml
-   performance:
-     preallocate_activations: true
-   ```
+- Adjust KV cache size
+- Use quantization (INT8/INT4)
+- Preallocate activations
 
 ### Batching Tuning
 
 ```yaml
-worker:
-  batching:
-    max_batch_size: 32          # Increase for higher throughput
-    batching_window_ms: 5       # Decrease for lower latency
-    max_queue_size: 512         # Increase for higher burst capacity
-```
-
-Trade-offs:
-- Larger batch size = higher throughput, higher latency
-- Larger batching window = higher throughput, higher latency
-- Smaller values = lower latency, lower throughput
-
-### Network Optimization
-
-1. **Use gRPC Compression**:
-   ```yaml
-   grpc:
-     compression: "gzip"
-   ```
-
-2. **Increase Buffer Sizes**:
-   ```yaml
-   grpc:
-     max_receive_message_length: 134217728  # 128 MB
-   ```
-
-## Monitoring and Observability
-
-### Prometheus Metrics
-
-All components expose Prometheus metrics on port 9091:
-
-**Worker Metrics:**
-- `worker_forward_duration_seconds` - Forward pass latency
-- `worker_queue_time_seconds` - Time spent in queue
-- `worker_queue_depth` - Current queue depth
-- `worker_batch_size` - Batch size distribution
-- `worker_cpu_utilization_percent` - CPU usage
-- `worker_memory_used_bytes` - Memory usage
-
-**Coordinator Metrics:**
-- `coordinator_requests_routed_total` - Total requests routed
-- `coordinator_active_workers` - Healthy worker count
-- `coordinator_unhealthy_workers` - Unhealthy worker count
-- `coordinator_worker_response_time_seconds` - Worker response time
-
-**Inference Metrics:**
-- `inference_requests_total` - Total requests
-- `inference_request_duration_seconds` - End-to-end latency
-- `inference_tokens_generated_total` - Total tokens generated
-- `inference_tokens_per_second` - Throughput
-
-Example Grafana dashboard queries:
-```promql
-# Request rate
-rate(inference_requests_total[5m])
-
-# P95 latency
-histogram_quantile(0.95, rate(inference_request_duration_seconds_bucket[5m]))
-
-# Tokens per second
-rate(inference_tokens_generated_total[5m])
-
-# Worker health
-count(coordinator_active_workers) by (worker_id)
-```
-
-### Logging
-
-Logs are structured JSON with tracing:
-
-```json
-{
-  "timestamp": "2024-01-15T10:30:45.123Z",
-  "level": "info",
-  "target": "chatloop_worker::batching",
-  "message": "Created batch: 4 requests, max_seq_len: 128, age: 4.2ms",
-  "span": {
-    "request_id": "req-123",
-    "trace_id": "trace-456"
-  }
-}
-```
-
-Enable debug logging:
-```yaml
-observability:
-  log_level: "debug"
-```
-
-### Distributed Tracing
-
-Enable OpenTelemetry tracing:
-```yaml
-observability:
-  otel_endpoint: "http://jaeger:4317"
+batching:
+  max_batch_size: 32          # Increase for higher throughput
+  batching_window_ms: 5       # Decrease for lower latency
+  max_queue_size: 512         # Increase for higher burst capacity
 ```
 
 ## Troubleshooting
 
-### Worker Not Starting
+### Build Issues
 
-**Symptoms**: Worker exits immediately after starting
+**Error: `cargo` not found**
+- Install Rust from https://rustup.rs/
+- Restart your terminal after installation
 
-**Solutions**:
-1. Check model path exists:
-   ```bash
-   ls -lh /home/chatloop/models/partition_0.safetensors
-   ```
+**Error: `make` not found (Windows)**
+- Use `.\build.ps1` instead
+- Or install make via Chocolatey: `choco install make`
 
-2. Check configuration syntax:
-   ```bash
-   python -c "import yaml; yaml.safe_load(open('configs/worker-config.yaml'))"
-   ```
+### Runtime Issues
 
-3. Check logs:
-   ```bash
-   docker logs chatloop-worker-0
-   ```
+**Worker not starting**
+- Check model path exists
+- Check configuration syntax
+- View logs: `docker logs chatloop-worker-0`
 
-### High Latency
+**High latency**
+- Check queue depth metrics
+- Reduce batching window
+- Enable CPU pinning
 
-**Symptoms**: Requests taking >100ms
-
-**Solutions**:
-1. Check queue depth:
-   ```bash
-   curl http://worker:9091/metrics | grep worker_queue_depth
-   ```
-
-2. Reduce batching window:
-   ```yaml
-   batching_window_ms: 2
-   ```
-
-3. Check CPU utilization:
-   ```bash
-   curl http://worker:9091/metrics | grep worker_cpu_utilization
-   ```
-
-4. Enable CPU pinning if not already enabled
-
-### Out of Memory
-
-**Symptoms**: Worker killed with OOM
-
-**Solutions**:
-1. Reduce KV cache size:
-   ```yaml
-   kv_cache_mb: 256
-   ```
-
-2. Use quantization (INT8/INT4)
-
-3. Reduce batch size:
-   ```yaml
-   max_batch_size: 16
-   ```
-
-4. Increase container memory limit
-
-### Worker Failures
-
-**Symptoms**: Workers marked unhealthy frequently
-
-**Solutions**:
-1. Check health check interval:
-   ```yaml
-   health_check_interval_secs: 10
-   ```
-
-2. Increase failure threshold:
-   ```yaml
-   failure_threshold: 5
-   ```
-
-3. Check worker logs for errors:
-   ```bash
-   docker logs chatloop-worker-0 --tail 100
-   ```
-
-4. Verify network connectivity between coordinator and workers
+**Out of memory**
+- Reduce KV cache size
+- Use quantization
+- Reduce batch size
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please see:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
 
 ## License
 
@@ -640,9 +455,9 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Support
 
-- **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/your-org/chatloop/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/chatloop/discussions)
+- **Documentation**: See [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/iZoom786/chatloop/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/iZoom786/chatloop/discussions)
 
 ---
 
