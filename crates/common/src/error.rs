@@ -75,6 +75,10 @@ pub enum ChatLoopError {
     /// Generic internal error
     #[error("Internal error: {0}")]
     Internal(String),
+
+    /// Feature not implemented
+    #[error("Not implemented: {0}")]
+    NotImplemented(String),
 }
 
 impl From<AddrParseError> for ChatLoopError {

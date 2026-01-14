@@ -61,4 +61,4 @@ num-traits = "0.2"
 num-complex = "0.4"
 
 # Utilities
-lazy_static = "1.5"
+lazy_static = { version = "1.5" }
