@@ -1,7 +1,6 @@
 //! Common error types for ChatLoop
 //!
 //! This module defines all error types used across the ChatLoop system.
-//! All errors are convertible to gRPC status codes for proper error propagation.
 
 use std::net::AddrParseError;
 use thiserror::Error;
@@ -15,11 +14,11 @@ pub enum ChatLoopError {
 
     /// gRPC communication errors
     #[error("gRPC error: {0}")]
-    Grpc(#[from] tonic::Status),
+    Grpc(String),
 
     /// gRPC transport errors
     #[error("gRPC transport error: {0}")]
-    GrpcTransport(#[from] tonic::transport::Error),
+    GrpcTransport(String),
 
     /// Connection errors
     #[error("Connection error: {0}")]
@@ -85,61 +84,6 @@ impl From<AddrParseError> for ChatLoopError {
 }
 
 impl ChatLoopError {
-    /// Convert error to gRPC status code
-    pub fn to_status(&self) -> tonic::Status {
-        match self {
-            ChatLoopError::Grpc(status) => status.clone(),
-            ChatLoopError::GrpcTransport(_) => {
-                tonic::Status::unavailable("Transport error")
-            }
-            ChatLoopError::Connection(msg) => {
-                tonic::Status::unavailable(format!("Connection error: {}", msg))
-            }
-            ChatLoopError::Config(msg) => {
-                tonic::Status::internal(format!("Configuration error: {}", msg))
-            }
-            ChatLoopError::Model(msg) => {
-                tonic::Status::internal(format!("Model error: {}", msg))
-            }
-            ChatLoopError::Tensor(msg) => {
-                tonic::Status::internal(format!("Tensor operation error: {}", msg))
-            }
-            ChatLoopError::InvalidInput(msg) => {
-                tonic::Status::invalid_argument(format!("Invalid input: {}", msg))
-            }
-            ChatLoopError::QueueFull(msg) => {
-                tonic::Status::resource_exhausted(format!("Queue full: {}", msg))
-            }
-            ChatLoopError::Timeout(msg) => {
-                tonic::Status::deadline_exceeded(format!("Timeout: {}", msg))
-            }
-            ChatLoopError::WorkerUnavailable(msg) => {
-                tonic::Status::unavailable(format!("Worker unavailable: {}", msg))
-            }
-            ChatLoopError::Overloaded(msg) => {
-                tonic::Status::resource_exhausted(format!("System overloaded: {}", msg))
-            }
-            ChatLoopError::Io(err) => {
-                tonic::Status::internal(format!("I/O error: {}", err))
-            }
-            ChatLoopError::MemoryMap(msg) => {
-                tonic::Status::internal(format!("Memory mapping error: {}", msg))
-            }
-            ChatLoopError::Numa(msg) => {
-                tonic::Status::internal(format!("NUMA error: {}", msg))
-            }
-            ChatLoopError::Parse(msg) => {
-                tonic::Status::invalid_argument(format!("Parse error: {}", msg))
-            }
-            ChatLoopError::Serialization(err) => {
-                tonic::Status::internal(format!("Serialization error: {}", err))
-            }
-            ChatLoopError::Internal(msg) => {
-                tonic::Status::internal(format!("Internal error: {}", msg))
-            }
-        }
-    }
-
     /// Create a configuration error
     pub fn config(msg: impl Into<String>) -> Self {
         ChatLoopError::Config(msg.into())
