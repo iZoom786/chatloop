@@ -4,32 +4,65 @@ This guide will get you up and running with ChatLoop in under 30 minutes.
 
 ## Prerequisites
 
-- Docker and Docker Compose installed
+- Rust 1.75+ (install from https://rustup.rs/)
 - Python 3.9+ with pip
+- Docker and Docker Compose (optional, for containerized deployment)
 - At least 16GB RAM (32GB recommended)
 - 50GB free disk space
 
-## Step 1: Build the Project
+## Step 1: Install Rust
 
-```bash
-# Clone the repository
-git clone https://github.com/your-org/chatloop.git
-cd chatloop
+### Windows
+```powershell
+# Download from https://rustup.rs/ or use winget:
+winget install Rustlang.Rustup
 
-# Install Python dependencies
-make install-python-deps
-
-# Build Rust components
-make build
+# Restart terminal and verify:
+rustc --version
+cargo --version
 ```
 
-## Step 2: Split a Model
+### Linux/macOS
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
 
-For this example, we'll use a smaller model. Replace with your preferred model:
+# Verify:
+rustc --version
+cargo --version
+```
+
+## Step 2: Install Python Dependencies
 
 ```bash
-# Split Llama-2-7B into 4 partitions
-make split-model MODEL_NAME=meta-llama/Llama-2-7b-hf NUM_PARTITIONS=4
+pip install torch transformers safetensors accelerate
+```
+
+## Step 3: Build ChatLoop
+
+### Windows (PowerShell)
+```powershell
+cd E:\chatloop
+.\build.ps1 build
+```
+
+### Linux/macOS
+```bash
+cd chatloop
+cargo build --release
+```
+
+This will take 5-10 minutes on the first build as it downloads and compiles dependencies.
+
+## Step 4: Split a Model
+
+For this example, we'll use a smaller model. You can replace with your preferred model:
+
+```bash
+python python/model_splitter/split_model.py \
+    --model meta-llama/Llama-2-7b-hf \
+    --output ./models/partitions \
+    --num-partitions 4
 ```
 
 This creates:
@@ -37,16 +70,16 @@ This creates:
 - `models/partitions/partition_metadata.json`
 - `models/partitions/tokenizer/`
 
-## Step 3: Configure Workers
+## Step 5: Configure Workers
 
-Create worker configurations for each partition:
+Create worker configurations for each partition. Here's an example for Worker 0:
 
-```bash
-# Worker 0 (layers 0-7)
-cat > configs/worker-config-0.yaml << EOF
+**`configs/worker-config-0.yaml`:**
+```yaml
 mode: "worker"
 bind_address: "0.0.0.0"
 port: 50051
+
 worker:
   worker_id: "worker-0"
   layer_group:
@@ -58,229 +91,142 @@ worker:
     hidden_dim: 4096
     intermediate_dim: 11008
   next_worker_endpoint: "http://worker-1:50052"
-  prev_worker_endpoint: null
   batching:
     max_batch_size: 16
     batching_window_ms: 5
     max_queue_size: 256
-    queue_timeout_ms: 1000
-  weights_path: "/home/chatloop/models/partition_0.safetensors"
+  weights_path: "/models/partition_0.safetensors"
   worker_threads: 8
-  enable_cpu_pinning: true
+
 observability:
   log_level: "info"
   enable_metrics: true
-  metrics_port: 9091
-EOF
-
-# Worker 1 (layers 8-15)
-cat > configs/worker-config-1.yaml << EOF
-mode: "worker"
-bind_address: "0.0.0.0"
-port: 50052
-worker:
-  worker_id: "worker-1"
-  layer_group:
-    start_layer: 8
-    end_layer: 16
-    total_layers: 32
-    num_heads: 32
-    head_dim: 128
-    hidden_dim: 4096
-    intermediate_dim: 11008
-  next_worker_endpoint: "http://worker-2:50053"
-  prev_worker_endpoint: "http://worker-0:50051"
-  batching:
-    max_batch_size: 16
-    batching_window_ms: 5
-    max_queue_size: 256
-    queue_timeout_ms: 1000
-  weights_path: "/home/chatloop/models/partition_1.safetensors"
-  worker_threads: 8
-  enable_cpu_pinning: true
-observability:
-  log_level: "info"
-  enable_metrics: true
-  metrics_port: 9091
-EOF
-
-# Create similar configs for workers 2 and 3...
 ```
 
-## Step 4: Build Docker Images
+Create similar configs for workers 1, 2, and 3, updating:
+- `worker_id`: worker-1, worker-2, worker-3
+- `port`: 50052, 50053, 50054
+- `start_layer` / `end_layer`: 8-16, 16-24, 24-32
+- `next_worker_endpoint`: Point to next worker (or null for last worker)
+
+## Step 6: Build Docker Images (Optional)
 
 ```bash
-make docker-build
+# Build base image
+docker build -f docker/base.Dockerfile -t chatloop-base:latest .
+
+# Build worker image
+docker build -f docker/worker.Dockerfile -t chatloop-worker:latest .
+
+# Build coordinator image
+docker build -f docker/coordinator.Dockerfile -t chatloop-coordinator:latest .
 ```
 
-## Step 5: Update docker-compose.yml
+## Step 7: Start Services
 
-Ensure your `docker-compose.yml` has the correct number of workers:
-
-```yaml
-services:
-  coordinator:
-    # ... (as provided)
-
-  worker-0:
-    # ... (as provided)
-
-  worker-1:
-    # ... (as provided)
-
-  worker-2:
-    build:
-      context: .
-      dockerfile: docker/worker.Dockerfile
-    ports:
-      - "50053:50053"
-      - "9094:9091"
-    volumes:
-      - ./models:/home/chatloop/models:ro
-      - ./configs/worker-config-2.yaml:/home/chatloop/configs/worker-config.yaml
-    environment:
-      - CHATLOOP_CONFIG=/home/chatloop/configs/worker-config.yaml
-      - CHATLOOP_WORKER_ID=worker-2
-    networks:
-      - chatloop-network
-    restart: unless-stopped
-
-  worker-3:
-    build:
-      context: .
-      dockerfile: docker/worker.Dockerfile
-    ports:
-      - "50054:50054"
-      - "9095:9091"
-    volumes:
-      - ./models:/home/chatloop/models:ro
-      - ./configs/worker-config-3.yaml:/home/chatloop/configs/worker-config.yaml
-    environment:
-      - CHATLOOP_CONFIG=/home/chatloop/configs/worker-config.yaml
-      - CHATLOOP_WORKER_ID=worker-3
-    networks:
-      - chatloop-network
-    restart: unless-stopped
-```
-
-## Step 6: Start Services
+### Using Docker Compose (Recommended for Development)
 
 ```bash
-make docker-compose-up
+docker-compose up -d
 ```
 
-Check logs to ensure services started correctly:
+### Running Directly (Development)
 
 ```bash
+# Terminal 1: Start coordinator
+cargo run --release -p chatloop-coordinator
+
+# Terminal 2: Start worker 0
+cargo run --release -p chatloop-worker
+
+# Terminal 3, 4, 5: Start other workers
+```
+
+## Step 8: Verify Installation
+
+Check that services are running:
+
+```bash
+# Check logs
 docker-compose logs -f coordinator
 docker-compose logs -f worker-0
-```
 
-## Step 7: Send a Test Request
-
-Create a test client:
-
-```python
-# test_client.py
-import grpc
-from inference_pb2_grpc import InferenceServiceStub
-from inference_pb2 import InferenceRequest
-
-def test_inference():
-    # Connect to coordinator
-    channel = grpc.insecure_channel("localhost:50050")
-    stub = InferenceServiceStub(channel)
-
-    # Send request
-    request = InferenceRequest(
-        model_id="llama-2-7b",
-        prompt="The future of AI is",
-        max_tokens=50,
-        temperature=0.8,
-        top_p=0.95,
-    )
-
-    print("Sending request...")
-    response = stub.Inference(request, timeout=60)
-
-    print(f"Generated text: {response.text}")
-    print(f"Prompt tokens: {response.prompt_tokens}")
-    print(f"Completion tokens: {response.completion_tokens}")
-    print(f"Total time: {response.total_duration_ms}ms")
-
-if __name__ == "__main__":
-    test_inference()
-```
-
-Run the client:
-
-```bash
-pip install grpcio grpcio-tools
-python test_client.py
-```
-
-## Step 8: Check Metrics
-
-Access Prometheus metrics:
-
-```bash
-# Coordinator metrics
+# Check metrics
 curl http://localhost:9091/metrics
-
-# Worker 0 metrics
-curl http://localhost:9092/metrics
 ```
 
-## Troubleshooting
+## Common Issues
 
-### Workers not connecting
+### Build Errors
 
-Check network connectivity:
+**Error: `cargo` not found**
+- Install Rust from https://rustup.rs/
+- Restart your terminal
+
+**Error: `make` not found (Windows)**
+- Use `.\build.ps1` instead of `make`
+- Or install make: `choco install make`
+
+### Runtime Errors
+
+**Worker fails to start**
+- Check that model partitions exist
+- Verify configuration YAML syntax
+- Check logs for specific errors
+
+**Out of memory**
+- Reduce batch size in config
+- Reduce KV cache size
+- Use fewer workers
+
+### Model Download Issues
+
+**HuggingFace authentication**
 ```bash
-docker-compose exec coordinator ping worker-0
+pip install huggingface-hub
+huggingface-cli login
 ```
 
-### Out of memory errors
-
-Reduce batch size in worker configs:
-```yaml
-batching:
-  max_batch_size: 8
-```
-
-### Slow inference
-
-1. Check CPU utilization:
-```bash
-docker exec chatloop-worker-0 top -b -n 1
-```
-
-2. Enable CPU pinning in worker configs
-
-3. Reduce batching window for lower latency
+**Model not found**
+- Verify model name is correct
+- Check you have access to the model
+- Try a public model like `gpt2` for testing
 
 ## Next Steps
 
 1. **Scale Up**: Add more workers for higher throughput
-2. **Quantization**: Use INT8 quantization to reduce memory
+2. **Quantization**: Use INT8 to reduce memory usage
    ```bash
-   make split-model-int8
+   python python/model_splitter/split_model.py --quantization int8 ...
    ```
-3. **Monitoring**: Set up Prometheus and Grafana
+3. **Monitoring**: Set up Prometheus and Grafana for metrics
 4. **Production**: Deploy to Kubernetes or YARN
 
-## Production Tips
+## Testing
 
-- Use 10 Gbps networking between workers
-- Pin workers to dedicated CPU cores
-- Use NVMe storage for model weights
-- Enable NUMA binding for multi-socket systems
-- Monitor queue depths and adjust batch sizes
+Once services are running, you can test inference:
+
+```python
+# Create a simple test client
+# test_client.py
+
+import requests
+
+# Send a test request to the coordinator
+response = requests.post("http://localhost:50050/inference", json={
+    "model_id": "llama-2-7b",
+    "prompt": "Hello, how are you?",
+    "max_tokens": 50,
+    "temperature": 0.7
+})
+
+print(response.json())
+```
 
 ## Getting Help
 
-- Full documentation: [README.md](README.md)
-- Issues: [GitHub Issues](https://github.com/your-org/chatloop/issues)
-- Discussions: [GitHub Discussions](https://github.com/your-org/chatloop/discussions)
+- **Full Documentation**: See [README.md](README.md)
+- **Issues**: [GitHub Issues](https://github.com/iZoom786/chatloop/issues)
+- **Troubleshooting**: Check the [Troubleshooting](#troubleshooting) section
 
-Happy inference! 🚀
+Happy inferencing! 🚀
