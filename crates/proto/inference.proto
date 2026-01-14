@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package inference;
+
+// Inference service exposed by coordinator to clients
+service InferenceService {
+  // Single-turn inference request
+  rpc Inference(InferenceRequest) returns (InferenceResponse);
+
+  // Streaming inference for token-by-token generation
+  rpc InferenceStream(InferenceRequest) returns (stream InferenceStreamResponse);
+
+  // Health check
+  rpc Health(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Request for inference
+message InferenceRequest {
+  string model_id = 1;           // Model identifier
+  string prompt = 2;             // Input prompt text
+  int32 max_tokens = 3;          // Maximum tokens to generate
+  float temperature = 4;         // Sampling temperature (0.0 to 2.0)
+  float top_p = 5;               // Nucleus sampling parameter
+  float top_k = 6;               // Top-k sampling parameter
+  bool echo_prompt = 7;          // Whether to include prompt in response
+  string request_id = 8;         // Optional client-provided request ID
+  map<string, string> metadata = 9; // Additional metadata
+}
+
+// Single inference response (non-streaming)
+message InferenceResponse {
+  string text = 1;               // Generated text
+  repeated Token tokens = 2;     // Generated tokens
+  int32 prompt_tokens = 3;       // Number of tokens in prompt
+  int32 completion_tokens = 4;   // Number of tokens generated
+  int64 total_duration_ms = 5;   // Total time in milliseconds
+  int64 prompt_duration_ms = 6;  // Time to process prompt
+  int64 completion_duration_ms = 7; // Time to generate completion
+  string request_id = 8;         // Request ID for tracing
+  bool finished = 9;             // True if generation is complete
+  string finish_reason = 10;     // Reason for finishing (length, stop, etc.)
+}
+
+// Streaming response chunk
+message InferenceStreamResponse {
+  Token token = 1;               // Current token
+  string text_so_far = 2;        // Text generated so far
+  string request_id = 3;         // Request ID for tracing
+  bool finished = 4;             // True if generation is complete
+  string finish_reason = 5;      // Reason for finishing
+}
+
+// Token information
+message Token {
+  int32 id = 1;                  // Token ID
+  string text = 2;               // Token text
+  float logprob = 3;             // Log probability
+  int32 position = 4;            // Position in sequence
+}
+
+// Health check
+message HealthCheckRequest {
+  string service = 1;            // Service name to check
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+    SERVICE_UNKNOWN = 3;         // Used only by the Watch method.
+  }
+  ServingStatus status = 1;
+  string message = 2;            // Optional status message
+}

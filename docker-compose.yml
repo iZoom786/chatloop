@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  coordinator:
+    build:
+      context: .
+      dockerfile: docker/coordinator.Dockerfile
+    ports:
+      - "50050:50050"
+      - "9091:9091"
+    volumes:
+      - ./configs/coordinator-config.yaml:/home/chatloop/configs/coordinator-config.yaml
+    environment:
+      - CHATLOOP_CONFIG=/home/chatloop/configs/coordinator-config.yaml
+    networks:
+      - chatloop-network
+    restart: unless-stopped
+
+  worker-0:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    ports:
+      - "50051:50051"
+      - "9092:9091"
+    volumes:
+      - ./models:/home/chatloworkerps/models:ro
+      - ./configs/worker-config-0.yaml:/home/chatloop/configs/worker-config.yaml
+    environment:
+      - CHATLOOP_CONFIG=/home/chatloop/configs/worker-config.yaml
+      - CHATLOOP_WORKER_ID=worker-0
+    networks:
+      - chatloop-network
+    restart: unless-stopped
+    depends_on:
+      - coordinator
+
+  worker-1:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    ports:
+      - "50052:50052"
+      - "9093:9091"
+    volumes:
+      - ./models:/home/chatloop/models:ro
+      - ./configs/worker-config-1.yaml:/home/chatloop/configs/worker-config.yaml
+    environment:
+      - CHATLOOP_CONFIG=/home/chatloop/configs/worker-config.yaml
+      - CHATLOOP_WORKER_ID=worker-1
+    networks:
+      - chatloop-network
+    restart: unless-stopped
+    depends_on:
+      - coordinator
+
+  # Add more workers as needed...
+
+networks:
+  chatloop-network:
+    driver: bridge

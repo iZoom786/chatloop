@@ -1,0 +1,49 @@
+# ChatLoop Coordinator Configuration
+
+mode: "coordinator"
+
+# Server binding
+bind_address: "0.0.0.0"
+port: 50050
+
+# Coordinator-specific configuration
+coordinator:
+  # List of worker endpoints
+  # These should be discovered or configured based on your deployment
+  worker_endpoints:
+    - "http://worker-0:50051"
+    - "http://worker-1:50052"
+    - "http://worker-2:50053"
+    - "http://worker-3:50054"
+
+  # Worker discovery method
+  # Options: static, dns, consul, etcd
+  discovery_method: "static"
+
+  # Health check interval in seconds
+  health_check_interval_secs: 5
+
+  # Failure threshold before marking worker unhealthy
+  failure_threshold: 3
+
+  # Request timeout in seconds
+  request_timeout_secs: 30
+
+  # Maximum concurrent requests across all workers
+  max_concurrent_requests: 1000
+
+# Performance tuning
+performance:
+  enable_simd: false  # Not needed for coordinator
+  enable_numa: false
+  kv_cache_mb: 0
+  preallocate_activations: false
+  allocator: "system"
+
+# Observability
+observability:
+  log_level: "info"
+  enable_metrics: true
+  metrics_port: 9091
+  structured_logging: true
+  otel_endpoint: null

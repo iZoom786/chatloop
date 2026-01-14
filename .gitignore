@@ -1,0 +1,79 @@
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Model weights (large files)
+*.safetensors
+*.bin
+*.ckpt
+*.pth
+models/
+*.gguf
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+tmp/
+temp/
+
+# Configuration (keep examples)
+configs/worker-config-*.yaml
+!configs/worker-config.yaml
+configs/coordinator-config-*.yaml
+!configs/coordinator-config.yaml
+
+# Docker
+.dockerignore
+
+# YARN
+.yarn/
+
+# Build artifacts
+dist/
+build/

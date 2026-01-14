@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ChatLoop Worker Service Definition for YARN
+
+  This defines a long-running worker service in YARN.
+  YARN manages the Docker container lifecycle and resource allocation.
+
+  Usage:
+    yarn app -install chatloop-worker
+    yarn app -start chatloop-worker -Dworker.id=0 -Dworker.port=50051
+-->
+<property>
+  <name>yarn.service.enabled</name>
+  <value>true</value>
+</property>
+
+<!-- Service Configuration -->
+<property>
+  <name>yarn.service.name</name>
+  <value>chatloop-worker-${worker.id}</value>
+  <description>Unique name for this worker service</description>
+</property>
+
+<!-- Docker Configuration -->
+<property>
+  <name>yarn.service.container.worker.image</name>
+  <value>chatloop-worker:latest</value>
+  <description>Docker image for worker containers</description>
+</property>
+
+<property>
+  <name>yarn.service.am.container.image</name>
+  <value>chatloop-worker:latest</value>
+  <description>Docker image for application master</description>
+</property>
+
+<!-- Resource Allocation -->
+<property>
+  <name>yarn.service.worker.resource.memory-mb</name>
+  <value>32768</value>
+  <description>Memory per worker (32 GB)</description>
+</property>
+
+<property>
+  <name>yarn.service.worker.resource.vcores</name>
+  <value>16</value>
+  <description>Virtual cores per worker</description>
+</property>
+
+<property>
+  <name>yarn.service.am.resource.memory-mb</name>
+  <value>2048</value>
+  <description>Memory for application master</description>
+</property>
+
+<property>
+  <name>yarn.service.am.resource.vcores</name>
+  <value>1</value>
+  <description>Virtual cores for application master</description>
+</property>
+
+<!-- Number of worker containers -->
+<property>
+  <name>yarn.service.worker.count</name>
+  <value>1</value>
+  <description>Number of worker containers per service instance</description>
+</property>
+
+<!-- Container Restart Policy -->
+<property>
+  <name>yarn.service.container.retry.policy</name>
+  <value>ON_FAILURE</value>
+  <description>Restart containers on failure</description>
+</property>
+
+<property>
+  <name>yarn.service.container.retry.max</name>
+  <value>3</value>
+  <description>Maximum retry attempts</description>
+</property>
+
+<!-- Environment Variables -->
+<property>
+  <name>yarn.service.worker.env.CHATLOOP_MODE</name>
+  <value>worker</value>
+</property>
+
+<property>
+  <name>yarn.service.worker.env.CHATLOOP_BIND_ADDRESS</name>
+  <value>0.0.0.0</value>
+</property>
+
+<property>
+  <name>yarn.service.worker.env.CHATLOOP_PORT</name>
+  <value>${worker.port}</value>
+</property>
+
+<property>
+  <name>yarn.service.worker.env.CHATLOOP_WORKER_ID</name>
+  <value>${worker.id}</value>
+</property>
+
+<!-- Mount Points -->
+<property>
+  <name>yarn.service.worker.mounts</name>
+  <value>
+    /mnt/models:/home/chatloop/models:ro,
+    /mnt/configs:/home/chatloop/configs:ro,
+    /mnt/logs:/home/chatloop/logs:rw
+  </value>
+  <description>
+    Mount model weights, configs, and logs directories.
+    Models are read-only, logs are read-write.
+  </description>
+</property>
+
+<!-- Health Check -->
+<property>
+  <name>yarn.service.worker.healthcheck.enabled</name>
+  <value>true</value>
+</property>
+
+<property>
+  <name>yarn.service.worker.healthcheck.interval.ms</name>
+  <value>30000</value>
+  <description>Health check every 30 seconds</description>
+</property>
+
+<property>
+  <name>yarn.service.worker.healthcheck.timeout.ms</name>
+  <value>10000</value>
+  <description>Health check timeout</description>
+</property>
+
+<!-- Networking -->
+<property>
+  <name>yarn.service.worker.network</name>
+  <value>host</value>
+  <description>Use host networking for better performance</description>
+</property>
+
+<!-- Log Aggregation -->
+<property>
+  <name>yarn.log-aggregation-enable</name>
+  <value>true</value>
+</property>
+
+<property>
+  <name>yarn.nodemanager.container-log-monitor.seen-line-limit.ms</name>
+  <value>60000</value>
+</property>

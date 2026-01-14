@@ -1,0 +1,13 @@
+[package]
+name = "chatloop-proto"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+prost.workspace = true
+tonic.workspace = true
+prost-types.workspace = true
+serde.workspace = true
+
+[build-dependencies]
+tonic-build.workspace = true

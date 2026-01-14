@@ -1,0 +1,55 @@
+[package]
+name = "chatloop-worker"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "chatloop-worker"
+path = "src/main.rs"
+
+[dependencies]
+# Workspace dependencies
+chatloop-common = { path = "../common" }
+chatloop-proto = { path = "../proto" }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+prometheus.workspace = true
+lazy_static.workspace = true
+
+# Memory and performance
+memmap2.workspace = true
+parking_lot.workspace = true
+crossbeam.workspace = true
+rayon.workspace = true
+
+# Tensor operations
+candle-core.workspace = true
+half.workspace = true
+
+# gRPC and networking
+tonic.workspace = true
+prost.workspace = true
+prost-types.workspace = true
+
+# Configuration
+config.workspace = true
+
+# UUID
+uuid.workspace = true
+
+# Numerical
+num-traits.workspace = true
+
+# Dev dependencies
+[dev-dependencies]
+tempfile = "3.10"
+criterion = "0.5"
+
+[[bench]]
+name = "matmul_benchmark"
+harness = false

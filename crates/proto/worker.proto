@@ -1,0 +1,165 @@
+syntax = "proto3";
+
+package worker;
+
+// Worker service for inter-worker communication in pipeline parallelism
+service WorkerService {
+  // Forward pass through this worker's layer group
+  rpc ForwardPass(ForwardRequest) returns (ForwardResponse);
+
+  // Initialize a new sequence
+  rpc InitializeSequence(SequenceInitRequest) returns (SequenceInitResponse);
+
+  // Health check
+  rpc Health(HealthCheckRequest) returns (HealthCheckResponse);
+
+  // Get worker load metrics
+  rpc GetMetrics(MetricsRequest) returns (MetricsResponse);
+}
+
+// Request to forward tensors through this layer group
+message ForwardRequest {
+  string request_id = 1;         // Unique request identifier
+  int64 sequence_id = 2;         // Sequence identifier for state tracking
+
+  // Input tensors (flattened and serialized)
+  repeated TensorData hidden_states = 3;
+
+  // Attention cache keys/values for this layer group
+  repeated TensorData keys = 4;
+  repeated TensorData values = 5;
+
+  // Position embeddings
+  repeated int32 positions = 6;
+
+  // Metadata
+  bool is_last_layer = 7;        // True if this is the final layer group
+  map<string, string> metadata = 8;
+}
+
+// Response from forward pass
+message ForwardResponse {
+  string request_id = 1;
+  int64 sequence_id = 2;
+
+  // Output hidden states
+  repeated TensorData hidden_states = 3;
+
+  // Updated attention cache
+  repeated TensorData keys = 4;
+  repeated TensorData values = 5;
+
+  // Completion status
+  bool finished = 6;
+  string finish_reason = 7;
+
+  // Performance metrics
+  int64 compute_time_us = 8;     // Compute time in microseconds
+  int64 queue_time_us = 9;       // Time spent in queue
+}
+
+// Initialize a new sequence for generation
+message SequenceInitRequest {
+  string request_id = 1;
+  int64 sequence_id = 2;
+
+  // Initial prompt tokens
+  repeated int32 prompt_tokens = 3;
+
+  // Generation parameters
+  float temperature = 4;
+  float top_p = 5;
+  int32 max_tokens = 6;
+
+  // KV cache dimensions
+  int32 num_layers = 7;
+  int32 num_heads = 8;
+  int32 head_dim = 9;
+}
+
+message SequenceInitResponse {
+  string request_id = 1;
+  int64 sequence_id = 2;
+  bool success = 3;
+  string message = 4;
+}
+
+// Tensor data container
+message TensorData {
+  int32 version = 1;             // Format version
+
+  // Tensor shape
+  repeated int64 shape = 2;
+
+  // Data type
+  DataType dtype = 3;
+
+  // Tensor data (serialized)
+  oneof data {
+    bytes data_f32 = 10;         // Float32 data
+    bytes data_f16 = 11;         // Float16 data
+    bytes data_i32 = 12;         // Int32 data
+    bytes data_i8 = 13;          // Int8 data (quantized)
+    bytes data_i4 = 14;          // Int4 data (quantized)
+    bytes data_bool = 15;        // Boolean data
+  }
+
+  // Quantization parameters (for quantized data)
+  float scale = 20;              // Scale factor for quantization
+  float zero_point = 21;         // Zero point for quantization
+}
+
+// Supported data types
+enum DataType {
+  UNKNOWN = 0;
+  FLOAT32 = 1;
+  FLOAT16 = 2;
+  INT32 = 3;
+  INT8 = 4;                      // Quantized
+  INT4 = 5;                      // Quantized (packed)
+  BOOL = 6;
+}
+
+// Metrics request
+message MetricsRequest {
+  bool detailed = 1;             // Request detailed metrics
+}
+
+// Worker metrics
+message MetricsResponse {
+  // Queue metrics
+  int32 queue_depth = 1;         // Current number of queued requests
+  int32 queue_capacity = 2;      // Maximum queue capacity
+  int64 avg_queue_time_us = 3;   // Average queue time
+
+  // Compute metrics
+  int64 avg_compute_time_us = 4; // Average compute time
+  double throughput_tps = 5;     // Tokens per second
+  int32 active_sequences = 6;    // Currently active sequences
+
+  // Resource metrics
+  double cpu_utilization = 7;    // CPU utilization (0.0 to 1.0)
+  uint64 memory_used_bytes = 8;  // Memory used
+  uint64 memory_total_bytes = 9; // Total memory available
+
+  // Worker info
+  string worker_id = 10;
+  int32 layer_group_start = 11;  // Starting layer index
+  int32 layer_group_end = 12;    // Ending layer index
+  bool healthy = 13;             // Worker health status
+}
+
+// Health check
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  ServingStatus status = 1;
+  string message = 2;
+}

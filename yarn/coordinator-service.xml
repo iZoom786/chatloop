@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ChatLoop Coordinator Service Definition for YARN
+
+  This defines a long-running coordinator service in YARN.
+  The coordinator routes requests to worker nodes.
+
+  Usage:
+    yarn app -install chatloop-coordinator
+    yarn app -start chatloop-coordinator
+-->
+<property>
+  <name>yarn.service.enabled</name>
+  <value>true</value>
+</property>
+
+<!-- Service Configuration -->
+<property>
+  <name>yarn.service.name</name>
+  <value>chatloop-coordinator</value>
+  <description>Name for the coordinator service</description>
+</property>
+
+<!-- Docker Configuration -->
+<property>
+  <name>yarn.service.container.coordinator.image</name>
+  <value>chatloop-coordinator:latest</value>
+  <description>Docker image for coordinator containers</description>
+</property>
+
+<property>
+  <name>yarn.service.am.container.image</name>
+  <value>chatloop-coordinator:latest</value>
+  <description>Docker image for application master</description>
+</property>
+
+<!-- Resource Allocation -->
+<property>
+  <name>yarn.service.coordinator.resource.memory-mb</name>
+  <value>4096</value>
+  <description>Memory for coordinator (4 GB)</description>
+</property>
+
+<property>
+  <name>yarn.service.coordinator.resource.vcores</name>
+  <value>2</value>
+  <description>Virtual cores for coordinator</description>
+</property>
+
+<property>
+  <name>yarn.service.am.resource.memory-mb</name>
+  <value>2048</value>
+  <description>Memory for application master</description>
+</property>
+
+<property>
+  <name>yarn.service.am.resource.vcores</name>
+  <value>1</value>
+  <description>Virtual cores for application master</description>
+</property>
+
+<!-- Number of coordinator containers -->
+<property>
+  <name>yarn.service.coordinator.count</name>
+  <value>1</value>
+  <description>Number of coordinator instances</description>
+</property>
+
+<!-- Container Restart Policy -->
+<property>
+  <name>yarn.service.container.retry.policy</name>
+  <value>ON_FAILURE</value>
+  <description>Restart coordinator on failure</description>
+</property>
+
+<property>
+  <name>yarn.service.container.retry.max</name>
+  <value>3</value>
+  <description>Maximum retry attempts</description>
+</property>
+
+<!-- Environment Variables -->
+<property>
+  <name>yarn.service.coordinator.env.CHATLOOP_MODE</name>
+  <value>coordinator</value>
+</property>
+
+<property>
+  <name>yarn.service.coordinator.env.CHATLOOP_BIND_ADDRESS</name>
+  <value>0.0.0.0</value>
+</property>
+
+<property>
+  <name>yarn.service.coordinator.env.CHATLOOP_PORT</name>
+  <value>50050</value>
+</property>
+
+<!-- Mount Points -->
+<property>
+  <name>yarn.service.coordinator.mounts</name>
+  <value>
+    /mnt/configs:/home/chatloop/configs:ro,
+    /mnt/logs:/home/chatloop/logs:rw
+  </value>
+  <description>Mount configs and logs directories</description>
+</property>
+
+<!-- Health Check -->
+<property>
+  <name>yarn.service.coordinator.healthcheck.enabled</name>
+  <value>true</value>
+</property>
+
+<property>
+  <name>yarn.service.coordinator.healthcheck.interval.ms</name>
+  <value>30000</value>
+  <description>Health check every 30 seconds</description>
+</property>
+
+<property>
+  <name>yarn.service.coordinator.healthcheck.timeout.ms</name>
+  <value>10000</value>
+  <description>Health check timeout</description>
+</property>
+
+<!-- Networking -->
+<property>
+  <name>yarn.service.coordinator.network</name>
+  <value>host</value>
+  <description>Use host networking</description>
+</property>
+
+<!-- Log Aggregation -->
+<property>
+  <name>yarn.log-aggregation-enable</name>
+  <value>true</value>
+</property>
