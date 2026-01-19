@@ -9,12 +9,12 @@ Write-Host "Checking Docker..." -ForegroundColor Yellow
 try {
     $dockerVersion = docker version --format "{{.Server.Version}}" 2>&1
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "✓ Docker is running (version $dockerVersion)" -ForegroundColor Green
+        Write-Host "Docker is running (version $dockerVersion)" -ForegroundColor Green
     } else {
-        Write-Host "✗ Docker may not be running properly" -ForegroundColor Red
+        Write-Host "Docker may not be running properly" -ForegroundColor Red
     }
 } catch {
-    Write-Host "✗ Docker is not running!" -ForegroundColor Red
+    Write-Host "Docker is not running!" -ForegroundColor Red
     Write-Host "Start Docker Desktop and try again." -ForegroundColor Yellow
     exit 1
 }
@@ -52,9 +52,9 @@ $requiredFiles = @(
 $allExist = $true
 foreach ($file in $requiredFiles) {
     if (Test-Path $file) {
-        Write-Host "  ✓ $file" -ForegroundColor Green
+        Write-Host "  OK: $file" -ForegroundColor Green
     } else {
-        Write-Host "  ✗ $file (missing!)" -ForegroundColor Red
+        Write-Host "  MISSING: $file" -ForegroundColor Red
         $allExist = $false
     }
 }
@@ -85,14 +85,14 @@ if ($logs) {
 Write-Host ""
 Write-Host "Checking git status..." -ForegroundColor Yellow
 try {
-    $gitStatus = git status --short 2>&1
+    $null = git status --short 2>&1
     if ($LASTEXITCODE -eq 0) {
         $changes = git status --short | Measure-Object
         if ($changes.Count -gt 0) {
             Write-Host "  Uncommitted changes detected:" -ForegroundColor Yellow
             git status --short | ForEach-Object { Write-Host "    $_" -ForegroundColor White }
         } else {
-            Write-Host "  ✓ Working directory clean" -ForegroundColor Green
+            Write-Host "  Working directory clean" -ForegroundColor Green
         }
     }
 } catch {
@@ -116,13 +116,13 @@ Write-Host "==================================" -ForegroundColor Cyan
 Write-Host ""
 
 if ($cs.TotalPhysicalMemory -lt 8GB) {
-    Write-Host "⚠ Warning: Less than 8GB RAM detected" -ForegroundColor Yellow
+    Write-Host "Warning: Less than 8GB RAM detected" -ForegroundColor Yellow
     Write-Host "  Consider increasing Docker memory limit in Docker Desktop Settings" -ForegroundColor Yellow
     Write-Host ""
 }
 
 if ($cs.NumberOfProcessors -lt 4) {
-    Write-Host "⚠ Warning: Less than 4 CPU cores detected" -ForegroundColor Yellow
+    Write-Host "Warning: Less than 4 CPU cores detected" -ForegroundColor Yellow
     Write-Host "  Build may be slow" -ForegroundColor Yellow
     Write-Host ""
 }
